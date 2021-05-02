@@ -71,8 +71,35 @@ func EncodeRowKeyWithHandle(tableID int64, handle int64) kv.Key {
 
 // DecodeRecordKey decodes the key and gets the tableID, handle.
 func DecodeRecordKey(key kv.Key) (tableID int64, handle int64, err error) {
-	/* Your code here */
-	return
+	if len(key) < RecordRowKeyLen {
+		return 0,0,errInvalidRecordKey.GenWithStack("invalid record key - %q",key)
+	}
+	if !startWithTablePrefix(key) {
+		return 0,0,errInvalidRecordKey.GenWithStack("invalid record key - %q",key)
+	}
+	key = key[tablePrefixLength:]
+	key,tableID,err = codec.DecodeInt(key)
+	if err != nil {
+		return 0,0,errors.Trace(err)
+	}
+	if !startWithRecordPrefixSep(key) {
+		return 0,0,errInvalidRecordKey.GenWithStack("invalid record key - %q",key)
+	}
+	key = key[recordPrefixSepLength:]
+	key,handle,err = codec.DecodeInt(key)
+	if err != nil {
+		return 0,0,errors.Trace(err)
+	}
+
+	return tableID, handle, nil
+}
+
+func startWithTablePrefix(key kv.Key) bool {
+	return key[0] == tablePrefix[0]
+}
+
+func startWithRecordPrefixSep(key kv.Key) bool {
+	return key[0] == tablePrefixSep[0] && key[1] == recordPrefixSep[1]
 }
 
 // appendTableIndexPrefix appends table index prefix  "t[tableID]_i".
@@ -94,8 +121,30 @@ func EncodeIndexSeekKey(tableID int64, idxID int64, encodedValue []byte) kv.Key 
 
 // DecodeIndexKeyPrefix decodes the key and gets the tableID, indexID, indexValues.
 func DecodeIndexKeyPrefix(key kv.Key) (tableID int64, indexID int64, indexValues []byte, err error) {
-	/* Your code here */
+	if len(key) < RecordRowKeyLen {
+		return 0,0,errInvalidIndexKey.GenWithStack("invalid record key - %q",key)
+	}
+	if !startWithTablePrefix(key) {
+		return 0,0,errInvalidIndexKey.GenWithStack("invalid record key - %q",key)
+	}
+	key = key[tablePrefixLength:]
+	key,tableID,err = codec.DecodeInt(key)
+	if err != nil {
+		return 0,0,errors.Trace(err)
+	}
+	if !startWithIndexPrefixSep(key) {
+		return 0,0,errInvalidIndexKey.GenWithStack("invalid record key - %q",key)
+	}
+	key = key[recordPrefixSepLength:]
+	key,handle,err = codec.DecodeInt(key)
+	if err != nil {
+		return 0,0,errors.Trace(err)
+	}
 	return tableID, indexID, indexValues, nil
+}
+
+func startWithIndexPrefixSep(key kv.Key) bool {
+	return key[0] == IndexPrefixSep[0] && key[1] == IndexPrefixSep[1]
 }
 
 // DecodeIndexKey decodes the key and gets the tableID, indexID, indexValues.
